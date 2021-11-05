@@ -6,3 +6,6 @@ for authentication, various request and response types and pagination.
 For usage information, check out the [examples](/examples) and [tests](/tests)
 
 Originally inspired by [ring-api](https://github.com/H2CO3/ring_api)
+
+## Vila?
+Vila is Swedish for rest.
