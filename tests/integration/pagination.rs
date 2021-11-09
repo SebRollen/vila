@@ -101,3 +101,46 @@ async fn query() {
     );
     assert!(response.next().await.is_none());
 }
+
+#[tokio::test]
+async fn can_overwrite_existing_query() {
+    let server = MockServer::start().await;
+    let uri = server.uri();
+    let client = Client::new(&uri);
+
+    Mock::given(method("GET"))
+        .and(path("/page"))
+        .and(query_param("page", "0"))
+        .respond_with(|_: &MockRequest| {
+            let body = PaginationResponse {
+                next_page: Some(1),
+                data: "First!".into(),
+            };
+            ResponseTemplate::new(200).set_body_json(body)
+        })
+        .mount(&server)
+        .await;
+
+    Mock::given(method("GET"))
+        .and(path("/page"))
+        .and(query_param("page", "1"))
+        .respond_with(|_: &MockRequest| {
+            let body = PaginationResponse {
+                next_page: Some(2),
+                data: "Second!".into(),
+            };
+            ResponseTemplate::new(200).set_body_json(body)
+        })
+        .mount(&server)
+        .await;
+
+    let mut response = client.send_paginated(&PaginationRequest { page: Some(0) });
+    assert_eq!(
+        response.next().await.unwrap().unwrap().data,
+        "First!".to_string()
+    );
+    assert_eq!(
+        response.next().await.unwrap().unwrap().data,
+        "Second!".to_string()
+    );
+}

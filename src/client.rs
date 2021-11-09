@@ -154,14 +154,26 @@ impl Client {
                 if let Some(page) = page.as_ref() {
                     match page {
                         PaginationType::Query(queries) => {
-                            let mut existing = base_request.url_mut().query_pairs_mut();
-                            for (key, val) in queries.iter() {
-                                existing.append_pair(key, val);
+                            // There's no easy way to just overwrite specific queries, so we need
+                            // to do some extra manipulating.
+                            let keys: Vec<_> = queries.iter().map(|(k, _)| k).collect();
+                            let unchanged_queries: Vec<(_, _)> = base_request
+                                .url()
+                                .query_pairs()
+                                .filter(|(k, _)| !keys.contains(&&k.to_string()))
+                                .collect();
+                            let mut temp_url = base_request.url().clone();
+                            temp_url.set_query(None);
+                            for (key, val) in unchanged_queries {
+                                temp_url.query_pairs_mut().append_pair(&key, &val);
                             }
+                            for (key, val) in queries.iter() {
+                                temp_url.query_pairs_mut().append_pair(key, val);
+                            }
+                            base_request.url_mut().set_query(temp_url.query());
                         }
                     };
                 }
-
                 let response = self.send_raw(base_request).await?;
                 let state = paginator.next(&state, &response);
                 Ok(Some((response, (paginator, state))))
