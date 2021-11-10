@@ -4,6 +4,7 @@ use crate::request::{Request, RequestBuilderExt};
 use futures::prelude::*;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use reqwest::Client as ReqwestClient;
+use std::collections::HashSet;
 use std::convert::TryFrom;
 use std::sync::Arc;
 
@@ -156,7 +157,7 @@ impl Client {
                         PaginationType::Query(queries) => {
                             // There's no easy way to just overwrite specific queries, so we need
                             // to do some extra manipulating.
-                            let keys: Vec<_> = queries.iter().map(|(k, _)| k).collect();
+                            let keys: HashSet<_> = queries.iter().map(|(k, _)| k).collect();
                             let unchanged_queries: Vec<(_, _)> = base_request
                                 .url()
                                 .query_pairs()
@@ -171,6 +172,38 @@ impl Client {
                                 temp_url.query_pairs_mut().append_pair(key, val);
                             }
                             base_request.url_mut().set_query(temp_url.query());
+                        }
+                        PaginationType::Path(path) => {
+                            let temp_url = base_request.url().clone();
+                            let mut new_segments: Vec<&str> =
+                                temp_url
+                                    .path_segments()
+                                    .expect("URL cannot be a base")
+                                    .enumerate()
+                                    .map(|(i, x)| {
+                                        path.iter()
+                                            .find_map(|(i2, x2)| {
+                                                if *i2 == i {
+                                                    Some(x2.as_str())
+                                                } else {
+                                                    None
+                                                }
+                                            })
+                                            .unwrap_or(x)
+                                    })
+                                    .collect();
+                            let len = new_segments.len();
+                            // Append any additional path segments not present in original path
+                            new_segments.extend(path.iter().filter_map(|(i, x)| {
+                                if *i >= len {
+                                    Some(x.as_str())
+                                } else {
+                                    None
+                                }
+                            }));
+                            let mut url = base_request.url_mut().path_segments_mut().unwrap();
+                            url.clear();
+                            url.extend(new_segments.iter());
                         }
                     };
                 }
