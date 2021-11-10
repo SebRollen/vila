@@ -5,6 +5,7 @@ use crate::Request;
 pub enum PaginationType {
     /// Pagination by one or multiple query parameters.
     Query(Vec<(String, String)>),
+    Path(Vec<(usize, String)>),
 }
 
 /// Base trait for paginators. Paginators can use the previous pagination state
@@ -72,6 +73,42 @@ impl<T> Paginator<T> for QueryPaginator<T> {
         let queries = (self.f)(prev, res);
         match queries {
             Some(queries) => PaginationState::Next(PaginationType::Query(queries)),
+            None => PaginationState::End,
+        }
+    }
+}
+
+/// A paginator that implements pagination through one or more path parameters. The closure inside
+/// the paginator should return the path segment number and the new path segment, e.g. (2, "foo")
+/// represents changing the third path segment to "foo"
+#[allow(clippy::type_complexity)]
+pub struct PathPaginator<T> {
+    f: Box<dyn Fn(&PaginationState<PaginationType>, &T) -> Option<Vec<(usize, String)>>>,
+    _phantom: std::marker::PhantomData<T>,
+}
+
+impl<T> PathPaginator<T> {
+    pub fn new<
+        F: 'static + Fn(&PaginationState<PaginationType>, &T) -> Option<Vec<(usize, String)>>,
+    >(
+        f: F,
+    ) -> Self {
+        Self {
+            f: Box::new(f),
+            _phantom: std::marker::PhantomData,
+        }
+    }
+}
+
+impl<T> Paginator<T> for PathPaginator<T> {
+    fn next(
+        &self,
+        prev: &PaginationState<PaginationType>,
+        res: &T,
+    ) -> PaginationState<PaginationType> {
+        let path = (self.f)(prev, res);
+        match path {
+            Some(path) => PaginationState::Next(PaginationType::Path(path)),
             None => PaginationState::End,
         }
     }

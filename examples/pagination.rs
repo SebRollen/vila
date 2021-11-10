@@ -7,10 +7,13 @@ use vila::{Client, Request, RequestData};
 
 // Helpers
 fn extract_page_number(q: &PaginationType) -> Option<usize> {
-    let PaginationType::Query(v) = q;
-    v.first()
-        .map(|(_, v)| str::parse::<usize>(v).ok())
-        .flatten()
+    if let PaginationType::Query(v) = q {
+        v.first()
+            .map(|(_, v)| str::parse::<usize>(v).ok())
+            .flatten()
+    } else {
+        panic!("Unexpected paginator")
+    }
 }
 
 fn get_next_url(

@@ -1,10 +1,9 @@
-use crate::utils::matchers::MissingQuery;
 use futures::StreamExt;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 use vila::pagination::*;
-use vila::{Client, Request, RequestData};
-use wiremock::matchers::{method, path, query_param};
+use vila::{Client, Request};
+use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, Request as MockRequest, ResponseTemplate};
 
 #[derive(Serialize)]
@@ -19,37 +18,37 @@ struct PaginationResponse {
 }
 
 impl Request for PaginationRequest {
-    type Data = Self;
+    type Data = ();
     type Response = PaginationResponse;
 
     fn endpoint(&self) -> Cow<str> {
-        "/page".into()
-    }
-
-    fn data(&self) -> RequestData<&Self> {
-        RequestData::Query(self)
+        match self.page {
+            Some(page) => format!("/nested/page/{}", page).into(),
+            None => "/nested/page".into(),
+        }
     }
 }
 
 impl PaginatedRequest for PaginationRequest {
-    type Paginator = QueryPaginator<PaginationResponse>;
+    type Paginator = PathPaginator<PaginationResponse>;
     fn paginator(&self) -> Self::Paginator {
-        QueryPaginator::new(|_, r: &PaginationResponse| {
-            r.next_page
-                .map(|page| vec![("page".into(), format!("{}", page))])
+        PathPaginator::new(|_, r: &PaginationResponse| {
+            // /nested/page/{number}
+            //   ^      ^      ^
+            //   0      1      2
+            r.next_page.map(|page| vec![(2, page.to_string())])
         })
     }
 }
 
 #[tokio::test]
-async fn query() {
+async fn path_pagination() {
     let server = MockServer::start().await;
     let uri = server.uri();
     let client = Client::new(&uri);
 
     Mock::given(method("GET"))
-        .and(path("/page"))
-        .and(MissingQuery::new("page"))
+        .and(path("/nested/page"))
         .respond_with(|_: &MockRequest| {
             let body = PaginationResponse {
                 next_page: Some(1),
@@ -61,8 +60,7 @@ async fn query() {
         .await;
 
     Mock::given(method("GET"))
-        .and(path("/page"))
-        .and(query_param("page", "1"))
+        .and(path("/nested/page/1"))
         .respond_with(|_: &MockRequest| {
             let body = PaginationResponse {
                 next_page: Some(2),
@@ -74,8 +72,7 @@ async fn query() {
         .await;
 
     Mock::given(method("GET"))
-        .and(path("/page"))
-        .and(query_param("page", "2"))
+        .and(path("/nested/page/2"))
         .respond_with(|_: &MockRequest| {
             let body = PaginationResponse {
                 next_page: None,
@@ -100,47 +97,4 @@ async fn query() {
         "Last!".to_string()
     );
     assert!(response.next().await.is_none());
-}
-
-#[tokio::test]
-async fn can_overwrite_existing_query() {
-    let server = MockServer::start().await;
-    let uri = server.uri();
-    let client = Client::new(&uri);
-
-    Mock::given(method("GET"))
-        .and(path("/page"))
-        .and(query_param("page", "0"))
-        .respond_with(|_: &MockRequest| {
-            let body = PaginationResponse {
-                next_page: Some(1),
-                data: "First!".into(),
-            };
-            ResponseTemplate::new(200).set_body_json(body)
-        })
-        .mount(&server)
-        .await;
-
-    Mock::given(method("GET"))
-        .and(path("/page"))
-        .and(query_param("page", "1"))
-        .respond_with(|_: &MockRequest| {
-            let body = PaginationResponse {
-                next_page: Some(2),
-                data: "Second!".into(),
-            };
-            ResponseTemplate::new(200).set_body_json(body)
-        })
-        .mount(&server)
-        .await;
-
-    let mut response = client.send_paginated(&PaginationRequest { page: Some(0) });
-    assert_eq!(
-        response.next().await.unwrap().unwrap().data,
-        "First!".to_string()
-    );
-    assert_eq!(
-        response.next().await.unwrap().unwrap().data,
-        "Second!".to_string()
-    );
 }
