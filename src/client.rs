@@ -2,6 +2,7 @@ use crate::error::{Error, Result};
 use crate::pagination::{PaginatedRequest, PaginationState, PaginationType, Paginator};
 use crate::request::{Request, RequestBuilderExt};
 use futures::prelude::*;
+use log::debug;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use reqwest::Client as ReqwestClient;
 use std::collections::HashSet;
@@ -101,6 +102,7 @@ impl Client {
     where
         R: for<'de> serde::Deserialize<'de>,
     {
+        debug!("Sending request: {:?}", req);
         self.inner
             .execute(req)
             .map_err(From::from)

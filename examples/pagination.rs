@@ -76,6 +76,7 @@ impl PaginatedRequest for GetPassengers {
 
 #[tokio::main]
 pub async fn main() {
+    env_logger::init();
     let client = Client::new("https://api.instantwebtools.net");
     let req = GetPassengers { size: 1 };
 
