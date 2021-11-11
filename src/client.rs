@@ -146,7 +146,10 @@ impl Client {
         request: &'a R,
     ) -> impl Stream<Item = Result<R::Response>> + Unpin + 'a {
         Box::pin(stream::try_unfold(
-            (request.paginator(), PaginationState::Start(None)),
+            (
+                request.paginator(),
+                PaginationState::Start(request.initial_page()),
+            ),
             move |(paginator, state)| async move {
                 let mut base_request = self.format_request(request)?;
                 let page = match state.clone() {
