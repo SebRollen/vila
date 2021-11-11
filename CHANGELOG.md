@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.0](https://www.github.com/SebRollen/vila/compare/v1.1.0...v1.2.0) (2021-11-11)
+
+
+### Features
+
+* allow for specification of initial page ([#8](https://www.github.com/SebRollen/vila/issues/8)) ([f91777e](https://www.github.com/SebRollen/vila/commit/f91777e92c8075bfc33e8bdf54218a26d855ee0c))
+
 ## [1.1.0](https://www.github.com/SebRollen/vila/compare/v1.0.1...v1.1.0) (2021-11-10)
 
 
