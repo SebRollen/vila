@@ -1,5 +1,5 @@
 use crate::error::{Error, Result};
-use crate::pagination::{PaginatedRequest, PaginationState, Paginator, UrlUpdater};
+use crate::pagination::{PaginatedRequest, Paginator, State, UrlUpdater};
 use crate::request::{Request, RequestBuilderExt};
 use futures::prelude::*;
 use log::debug;
@@ -145,63 +145,18 @@ impl Client {
         request: &'a R,
     ) -> impl Stream<Item = Result<R::Response>> + Unpin + 'a {
         Box::pin(stream::try_unfold(
-            (
-                request.paginator(),
-                PaginationState::Start(request.initial_page()),
-            ),
+            (request.paginator(), State::Start(request.initial_page())),
             move |(paginator, state)| async move {
                 let mut base_request = self.format_request(request)?;
                 let page = match state {
-                    PaginationState::Start(None) => None,
-                    PaginationState::Start(Some(ref page)) => Some(page),
-                    PaginationState::Next(ref page) => Some(page),
-                    PaginationState::End => return Ok(None),
+                    State::Start(None) => None,
+                    State::Start(Some(ref page)) | State::Next(ref page) => Some(page),
+                    State::End => return Ok(None),
                 };
                 if let Some(page) = page {
                     let updater = paginator.updater(page.clone());
                     updater.update_url(base_request.url_mut())
                 }
-                //     match page {
-                //         PaginationType::Query(queries) => {
-                //             // There's no easy way to just overwrite specific queries, so we need
-                //             // to do some extra manipulating.
-                //             let unchanged_queries: Vec<(_, _)> = base_request
-                //                 .url()
-                //                 .query_pairs()
-                //                 .filter(|(k, _)| !queries.contains_key(k.as_ref()))
-                //                 .collect();
-                //             let mut temp_url = base_request.url().clone();
-                //             temp_url.set_query(None);
-                //             for (key, val) in unchanged_queries {
-                //                 temp_url.query_pairs_mut().append_pair(&key, &val);
-                //             }
-                //             for (key, val) in queries.iter() {
-                //                 temp_url.query_pairs_mut().append_pair(key, val);
-                //             }
-                //             base_request.url_mut().set_query(temp_url.query());
-                //         }
-                //         PaginationType::Path(path) => {
-                //             let temp_url = base_request.url().clone();
-                //             let mut new_segments: Vec<&str> = temp_url
-                //                 .path_segments()
-                //                 .expect("URL cannot be a base")
-                //                 .enumerate()
-                //                 .map(|(i, x)| path.get(&i).map(|val| val.as_str()).unwrap_or(x))
-                //                 .collect();
-                //             let len = new_segments.len();
-                //             // Append any additional path segments not present in original path
-                //             new_segments.extend(path.iter().filter_map(|(i, x)| {
-                //                 if *i >= len {
-                //                     Some(x.as_str())
-                //                 } else {
-                //                     None
-                //                 }
-                //             }));
-                //             let mut url = base_request.url_mut().path_segments_mut().unwrap();
-                //             url.clear();
-                //             url.extend(new_segments.iter());
-                //         }
-                //     };
                 let response = self.send_raw(base_request).await?;
                 let state = paginator.next(&state, &response);
                 Ok(Some((response, (paginator, state))))

@@ -3,17 +3,20 @@ use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 use std::collections::HashMap;
 use stream_flatten_iters::TryStreamExt;
-use vila::pagination::{PaginatedRequest, PaginationState, QueryPaginator, QueryUpdater};
+use vila::pagination::{
+    query::{QueryPaginator, QueryUpdater},
+    PaginatedRequest, State,
+};
 use vila::{Client, Request, RequestData};
 
 // Domain
 #[derive(Clone)]
-struct PaginationData {
+struct Data {
     page: usize,
 }
 
-impl From<PaginationData> for QueryUpdater {
-    fn from(s: PaginationData) -> QueryUpdater {
+impl From<Data> for QueryUpdater {
+    fn from(s: Data) -> QueryUpdater {
         let mut data = HashMap::new();
         data.insert("page".into(), s.page.to_string());
         QueryUpdater { data }
@@ -53,30 +56,28 @@ impl Request for GetPassengers {
 }
 
 impl PaginatedRequest for GetPassengers {
-    type PaginationData = PaginationData;
-    type Paginator = QueryPaginator<Self::Response, PaginationData>;
+    type Data = Data;
+    type Paginator = QueryPaginator<Self::Response, Data>;
 
-    fn initial_page(&self) -> Option<Self::PaginationData> {
-        self.page.map(|page| PaginationData { page })
+    fn initial_page(&self) -> Option<Data> {
+        self.page.map(|page| Data { page })
     }
 
     fn paginator(&self) -> Self::Paginator {
-        QueryPaginator::new(
-            |prev: &PaginationState<PaginationData>, res: &PassengersWrapper| {
-                let max_page = res.total_pages;
-                match prev {
-                    PaginationState::Start(None) => Some(PaginationData { page: 1 }),
-                    PaginationState::Start(Some(x)) | PaginationState::Next(x) => {
-                        if x.page == max_page {
-                            None
-                        } else {
-                            Some(PaginationData { page: x.page + 1 })
-                        }
+        QueryPaginator::new(|prev: &State<Data>, res: &PassengersWrapper| {
+            let max_page = res.total_pages;
+            match prev {
+                State::Start(None) => Some(Data { page: 1 }),
+                State::Start(Some(x)) | State::Next(x) => {
+                    if x.page == max_page {
+                        None
+                    } else {
+                        Some(Data { page: x.page + 1 })
                     }
-                    PaginationState::End => None,
                 }
-            },
-        )
+                State::End => None,
+            }
+        })
     }
 }
 

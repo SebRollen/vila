@@ -3,6 +3,7 @@ use futures::StreamExt;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 use std::collections::HashMap;
+use vila::pagination::query::*;
 use vila::pagination::*;
 use vila::{Client, Request, RequestData};
 use wiremock::matchers::{method, path, query_param};
@@ -46,7 +47,7 @@ impl Request for PaginationRequest {
 }
 
 impl PaginatedRequest for PaginationRequest {
-    type PaginationData = QueryData;
+    type Data = QueryData;
     type Paginator = QueryPaginator<PaginationResponse, QueryData>;
     fn paginator(&self) -> Self::Paginator {
         QueryPaginator::new(|_, r: &PaginationResponse| r.next_page.map(|page| QueryData { page }))
