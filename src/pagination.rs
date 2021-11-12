@@ -1,11 +1,13 @@
 use crate::Request;
+use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
 /// The type of pagination used for the resource.
 pub enum PaginationType {
     /// Pagination by one or multiple query parameters.
-    Query(Vec<(String, String)>),
-    Path(Vec<(usize, String)>),
+    Query(HashMap<String, String>),
+    /// Pagination by one or multiple path parameters.
+    Path(HashMap<usize, String>),
 }
 
 /// Base trait for paginators. Paginators can use the previous pagination state
@@ -49,19 +51,25 @@ impl<T> Default for PaginationState<T> {
     }
 }
 
+pub trait ToQueryPagination {
+    fn to_query_pagination(&self) -> HashMap<String, String>;
+}
+
+impl ToQueryPagination for HashMap<String, String> {
+    fn to_query_pagination(&self) -> HashMap<String, String> {
+        self.clone()
+    }
+}
+
 /// A paginator that implements pagination through one or more query parameters.
 #[allow(clippy::type_complexity)]
-pub struct QueryPaginator<T> {
-    f: Box<dyn Fn(&PaginationState<PaginationType>, &T) -> Option<Vec<(String, String)>>>,
+pub struct QueryPaginator<T, U> {
+    f: Box<dyn Fn(&PaginationState<PaginationType>, &T) -> Option<U>>,
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T> QueryPaginator<T> {
-    pub fn new<
-        F: 'static + Fn(&PaginationState<PaginationType>, &T) -> Option<Vec<(String, String)>>,
-    >(
-        f: F,
-    ) -> Self {
+impl<T, U> QueryPaginator<T, U> {
+    pub fn new<F: 'static + Fn(&PaginationState<PaginationType>, &T) -> Option<U>>(f: F) -> Self {
         Self {
             f: Box::new(f),
             _phantom: std::marker::PhantomData,
@@ -69,13 +77,16 @@ impl<T> QueryPaginator<T> {
     }
 }
 
-impl<T> Paginator<T> for QueryPaginator<T> {
+impl<T, U> Paginator<T> for QueryPaginator<T, U>
+where
+    U: ToQueryPagination,
+{
     fn next(
         &self,
         prev: &PaginationState<PaginationType>,
         res: &T,
     ) -> PaginationState<PaginationType> {
-        let queries = (self.f)(prev, res);
+        let queries = (self.f)(prev, res).map(|res| res.to_query_pagination());
         match queries {
             Some(queries) => PaginationState::Next(PaginationType::Query(queries)),
             None => PaginationState::End,
@@ -83,21 +94,27 @@ impl<T> Paginator<T> for QueryPaginator<T> {
     }
 }
 
+pub trait ToPathPagination {
+    fn to_path_pagination(&self) -> HashMap<usize, String>;
+}
+
+impl ToPathPagination for HashMap<usize, String> {
+    fn to_path_pagination(&self) -> HashMap<usize, String> {
+        self.clone()
+    }
+}
+
 /// A paginator that implements pagination through one or more path parameters. The closure inside
 /// the paginator should return the path segment number and the new path segment, e.g. (2, "foo")
 /// represents changing the third path segment to "foo"
 #[allow(clippy::type_complexity)]
-pub struct PathPaginator<T> {
-    f: Box<dyn Fn(&PaginationState<PaginationType>, &T) -> Option<Vec<(usize, String)>>>,
+pub struct PathPaginator<T, U> {
+    f: Box<dyn Fn(&PaginationState<PaginationType>, &T) -> Option<U>>,
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T> PathPaginator<T> {
-    pub fn new<
-        F: 'static + Fn(&PaginationState<PaginationType>, &T) -> Option<Vec<(usize, String)>>,
-    >(
-        f: F,
-    ) -> Self {
+impl<T, U> PathPaginator<T, U> {
+    pub fn new<F: 'static + Fn(&PaginationState<PaginationType>, &T) -> Option<U>>(f: F) -> Self {
         Self {
             f: Box::new(f),
             _phantom: std::marker::PhantomData,
@@ -105,13 +122,16 @@ impl<T> PathPaginator<T> {
     }
 }
 
-impl<T> Paginator<T> for PathPaginator<T> {
+impl<T, U> Paginator<T> for PathPaginator<T, U>
+where
+    U: ToPathPagination,
+{
     fn next(
         &self,
         prev: &PaginationState<PaginationType>,
         res: &T,
     ) -> PaginationState<PaginationType> {
-        let path = (self.f)(prev, res);
+        let path = (self.f)(prev, res).map(|res| res.to_path_pagination());
         match path {
             Some(path) => PaginationState::Next(PaginationType::Path(path)),
             None => PaginationState::End,

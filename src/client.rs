@@ -5,7 +5,6 @@ use futures::prelude::*;
 use log::debug;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use reqwest::Client as ReqwestClient;
-use std::collections::HashSet;
 use std::convert::TryFrom;
 use std::sync::Arc;
 
@@ -162,11 +161,10 @@ impl Client {
                         PaginationType::Query(queries) => {
                             // There's no easy way to just overwrite specific queries, so we need
                             // to do some extra manipulating.
-                            let keys: HashSet<_> = queries.iter().map(|(k, _)| k).collect();
                             let unchanged_queries: Vec<(_, _)> = base_request
                                 .url()
                                 .query_pairs()
-                                .filter(|(k, _)| !keys.contains(&&k.to_string()))
+                                .filter(|(k, _)| !queries.contains_key(k.as_ref()))
                                 .collect();
                             let mut temp_url = base_request.url().clone();
                             temp_url.set_query(None);
@@ -180,23 +178,12 @@ impl Client {
                         }
                         PaginationType::Path(path) => {
                             let temp_url = base_request.url().clone();
-                            let mut new_segments: Vec<&str> =
-                                temp_url
-                                    .path_segments()
-                                    .expect("URL cannot be a base")
-                                    .enumerate()
-                                    .map(|(i, x)| {
-                                        path.iter()
-                                            .find_map(|(i2, x2)| {
-                                                if *i2 == i {
-                                                    Some(x2.as_str())
-                                                } else {
-                                                    None
-                                                }
-                                            })
-                                            .unwrap_or(x)
-                                    })
-                                    .collect();
+                            let mut new_segments: Vec<&str> = temp_url
+                                .path_segments()
+                                .expect("URL cannot be a base")
+                                .enumerate()
+                                .map(|(i, x)| path.get(&i).map(|val| val.as_str()).unwrap_or(x))
+                                .collect();
                             let len = new_segments.len();
                             // Append any additional path segments not present in original path
                             new_segments.extend(path.iter().filter_map(|(i, x)| {

@@ -2,10 +2,23 @@ use crate::utils::matchers::MissingQuery;
 use futures::StreamExt;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
+use std::collections::HashMap;
 use vila::pagination::*;
 use vila::{Client, Request, RequestData};
 use wiremock::matchers::{method, path, query_param};
 use wiremock::{Mock, MockServer, Request as MockRequest, ResponseTemplate};
+
+struct QueryData {
+    page: usize,
+}
+
+impl ToQueryPagination for QueryData {
+    fn to_query_pagination(&self) -> HashMap<String, String> {
+        let mut h = HashMap::new();
+        h.insert("page".into(), self.page.to_string());
+        h
+    }
+}
 
 #[derive(Serialize)]
 struct PaginationRequest {
@@ -32,12 +45,9 @@ impl Request for PaginationRequest {
 }
 
 impl PaginatedRequest for PaginationRequest {
-    type Paginator = QueryPaginator<PaginationResponse>;
+    type Paginator = QueryPaginator<PaginationResponse, QueryData>;
     fn paginator(&self) -> Self::Paginator {
-        QueryPaginator::new(|_, r: &PaginationResponse| {
-            r.next_page
-                .map(|page| vec![("page".into(), page.to_string())])
-        })
+        QueryPaginator::new(|_, r: &PaginationResponse| r.next_page.map(|page| QueryData { page }))
     }
 }
 

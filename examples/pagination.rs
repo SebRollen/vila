@@ -1,16 +1,30 @@
 use futures::StreamExt;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
+use std::collections::HashMap;
 use stream_flatten_iters::TryStreamExt;
-use vila::pagination::{PaginatedRequest, PaginationState, PaginationType, QueryPaginator};
+use vila::pagination::{
+    PaginatedRequest, PaginationState, PaginationType, QueryPaginator, ToQueryPagination,
+};
 use vila::{Client, Request, RequestData};
 
 // Helpers
+
+struct PaginationData {
+    page: usize,
+}
+
+impl ToQueryPagination for PaginationData {
+    fn to_query_pagination(&self) -> HashMap<String, String> {
+        let mut h = HashMap::new();
+        h.insert("page".into(), self.page.to_string());
+        h
+    }
+}
+
 fn extract_page_number(q: &PaginationType) -> Option<usize> {
     if let PaginationType::Query(v) = q {
-        v.first()
-            .map(|(_, v)| str::parse::<usize>(v).ok())
-            .flatten()
+        v.get("page").map(|v| str::parse::<usize>(v).ok()).flatten()
     } else {
         panic!("Unexpected paginator")
     }
@@ -19,7 +33,7 @@ fn extract_page_number(q: &PaginationType) -> Option<usize> {
 fn get_next_url(
     prev: &PaginationState<PaginationType>,
     res: &PassengersWrapper,
-) -> Option<Vec<(String, String)>> {
+) -> Option<PaginationData> {
     let max_page = res.total_pages;
     let next_page = match prev {
         PaginationState::Start(None) => Some(1),
@@ -31,7 +45,7 @@ fn get_next_url(
     next_page
         .map(|page| if page > max_page { None } else { Some(page) })
         .flatten()
-        .map(|page| vec![("page".into(), format!("{}", page))])
+        .map(|page| PaginationData { page })
 }
 
 // Domain
@@ -67,7 +81,7 @@ impl Request for GetPassengers {
 }
 
 impl PaginatedRequest for GetPassengers {
-    type Paginator = QueryPaginator<Self::Response>;
+    type Paginator = QueryPaginator<Self::Response, PaginationData>;
 
     fn paginator(&self) -> Self::Paginator {
         QueryPaginator::new(get_next_url)

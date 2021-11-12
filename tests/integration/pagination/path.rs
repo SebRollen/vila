@@ -1,10 +1,26 @@
 use futures::StreamExt;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
+use std::collections::HashMap;
 use vila::pagination::*;
 use vila::{Client, Request};
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, Request as MockRequest, ResponseTemplate};
+
+struct PathData {
+    page: usize,
+}
+
+impl ToPathPagination for PathData {
+    fn to_path_pagination(&self) -> HashMap<usize, String> {
+        // /nested/page/{number}
+        //   ^      ^      ^
+        //   0      1      2
+        let mut h = HashMap::new();
+        h.insert(2, self.page.to_string());
+        h
+    }
+}
 
 #[derive(Serialize)]
 struct PaginationRequest {
@@ -30,14 +46,9 @@ impl Request for PaginationRequest {
 }
 
 impl PaginatedRequest for PaginationRequest {
-    type Paginator = PathPaginator<PaginationResponse>;
+    type Paginator = PathPaginator<PaginationResponse, PathData>;
     fn paginator(&self) -> Self::Paginator {
-        PathPaginator::new(|_, r: &PaginationResponse| {
-            // /nested/page/{number}
-            //   ^      ^      ^
-            //   0      1      2
-            r.next_page.map(|page| vec![(2, page.to_string())])
-        })
+        PathPaginator::new(|_, r: &PaginationResponse| r.next_page.map(|page| PathData { page }))
     }
 }
 
