@@ -3,55 +3,27 @@ use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 use std::collections::HashMap;
 use stream_flatten_iters::TryStreamExt;
-use vila::pagination::{
-    PaginatedRequest, PaginationState, PaginationType, QueryPaginator, ToQueryPagination,
-};
+use vila::pagination::{PaginatedRequest, PaginationState, QueryPaginator, QueryUpdater};
 use vila::{Client, Request, RequestData};
 
-// Helpers
-
+// Domain
+#[derive(Clone)]
 struct PaginationData {
     page: usize,
 }
 
-impl ToQueryPagination for PaginationData {
-    fn to_query_pagination(&self) -> HashMap<String, String> {
-        let mut h = HashMap::new();
-        h.insert("page".into(), self.page.to_string());
-        h
+impl From<PaginationData> for QueryUpdater {
+    fn from(s: PaginationData) -> QueryUpdater {
+        let mut data = HashMap::new();
+        data.insert("page".into(), s.page.to_string());
+        QueryUpdater { data }
     }
 }
 
-fn extract_page_number(q: &PaginationType) -> Option<usize> {
-    if let PaginationType::Query(v) = q {
-        v.get("page").map(|v| str::parse::<usize>(v).ok()).flatten()
-    } else {
-        panic!("Unexpected paginator")
-    }
-}
-
-fn get_next_url(
-    prev: &PaginationState<PaginationType>,
-    res: &PassengersWrapper,
-) -> Option<PaginationData> {
-    let max_page = res.total_pages;
-    let next_page = match prev {
-        PaginationState::Start(None) => Some(1),
-        PaginationState::Start(Some(x)) => extract_page_number(x).map(|x| x + 1),
-        PaginationState::Next(x) => extract_page_number(x).map(|x| x + 1),
-        PaginationState::End => None,
-    };
-
-    next_page
-        .map(|page| if page > max_page { None } else { Some(page) })
-        .flatten()
-        .map(|page| PaginationData { page })
-}
-
-// Domain
 #[derive(Serialize)]
 struct GetPassengers {
     size: usize,
+    page: Option<usize>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -81,10 +53,30 @@ impl Request for GetPassengers {
 }
 
 impl PaginatedRequest for GetPassengers {
+    type PaginationData = PaginationData;
     type Paginator = QueryPaginator<Self::Response, PaginationData>;
 
+    fn initial_page(&self) -> Option<Self::PaginationData> {
+        self.page.map(|page| PaginationData { page })
+    }
+
     fn paginator(&self) -> Self::Paginator {
-        QueryPaginator::new(get_next_url)
+        QueryPaginator::new(
+            |prev: &PaginationState<PaginationData>, res: &PassengersWrapper| {
+                let max_page = res.total_pages;
+                match prev {
+                    PaginationState::Start(None) => Some(PaginationData { page: 1 }),
+                    PaginationState::Start(Some(x)) | PaginationState::Next(x) => {
+                        if x.page == max_page {
+                            None
+                        } else {
+                            Some(PaginationData { page: x.page + 1 })
+                        }
+                    }
+                    PaginationState::End => None,
+                }
+            },
+        )
     }
 }
 
@@ -92,7 +84,10 @@ impl PaginatedRequest for GetPassengers {
 pub async fn main() {
     env_logger::init();
     let client = Client::new("https://api.instantwebtools.net");
-    let req = GetPassengers { size: 1 };
+    let req = GetPassengers {
+        page: None,
+        size: 1,
+    };
 
     // Can send request individually
     println!("{:?}", client.send(&req).await);

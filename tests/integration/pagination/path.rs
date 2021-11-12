@@ -7,18 +7,19 @@ use vila::{Client, Request};
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, Request as MockRequest, ResponseTemplate};
 
+#[derive(Clone)]
 struct PathData {
     page: usize,
 }
 
-impl ToPathPagination for PathData {
-    fn to_path_pagination(&self) -> HashMap<usize, String> {
+impl From<PathData> for PathUpdater {
+    fn from(s: PathData) -> PathUpdater {
+        let mut data = HashMap::new();
         // /nested/page/{number}
         //   ^      ^      ^
         //   0      1      2
-        let mut h = HashMap::new();
-        h.insert(2, self.page.to_string());
-        h
+        data.insert(2, s.page.to_string());
+        PathUpdater { data }
     }
 }
 
@@ -46,6 +47,7 @@ impl Request for PaginationRequest {
 }
 
 impl PaginatedRequest for PaginationRequest {
+    type PaginationData = PathData;
     type Paginator = PathPaginator<PaginationResponse, PathData>;
     fn paginator(&self) -> Self::Paginator {
         PathPaginator::new(|_, r: &PaginationResponse| r.next_page.map(|page| PathData { page }))

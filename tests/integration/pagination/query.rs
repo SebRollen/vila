@@ -8,15 +8,16 @@ use vila::{Client, Request, RequestData};
 use wiremock::matchers::{method, path, query_param};
 use wiremock::{Mock, MockServer, Request as MockRequest, ResponseTemplate};
 
+#[derive(Clone)]
 struct QueryData {
     page: usize,
 }
 
-impl ToQueryPagination for QueryData {
-    fn to_query_pagination(&self) -> HashMap<String, String> {
-        let mut h = HashMap::new();
-        h.insert("page".into(), self.page.to_string());
-        h
+impl From<QueryData> for QueryUpdater {
+    fn from(s: QueryData) -> QueryUpdater {
+        let mut data = HashMap::new();
+        data.insert("page".into(), s.page.to_string());
+        QueryUpdater { data }
     }
 }
 
@@ -45,6 +46,7 @@ impl Request for PaginationRequest {
 }
 
 impl PaginatedRequest for PaginationRequest {
+    type PaginationData = QueryData;
     type Paginator = QueryPaginator<PaginationResponse, QueryData>;
     fn paginator(&self) -> Self::Paginator {
         QueryPaginator::new(|_, r: &PaginationResponse| r.next_page.map(|page| QueryData { page }))

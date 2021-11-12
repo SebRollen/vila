@@ -10,10 +10,6 @@ impl<'a> MissingQuery<'a> {
 
 impl Match for MissingQuery<'_> {
     fn matches(&self, request: &Request) -> bool {
-        request
-            .url
-            .query_pairs()
-            .find(|(k, _)| k == self.0)
-            .is_none()
+        !request.url.query_pairs().any(|(k, _)| k == self.0)
     }
 }
