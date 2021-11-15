@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.0](https://www.github.com/SebRollen/vila/compare/v1.2.0...v2.0.0) (2021-11-15)
+
+
+### Miscellaneous Chores
+
+* release 2.0.0 ([8a190b3](https://www.github.com/SebRollen/vila/commit/8a190b3d3042207ad288301276e0e5c32db9f592))
+
 ## [1.2.0](https://www.github.com/SebRollen/vila/compare/v1.1.0...v1.2.0) (2021-11-11)
 
 
