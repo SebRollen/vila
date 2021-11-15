@@ -1,22 +1,30 @@
+//! Constructs for wrapping a paginated API.
+use crate::error::{Error, Result};
 use crate::Request;
-use reqwest::Url;
+use reqwest::Request as RawRequest;
 use std::collections::HashMap;
 
-pub trait UrlUpdater {
-    fn update_url(&self, url: &mut Url);
+/// Trait for updating an HTTP request with pagination data.
+pub trait RequestModifier {
+    /// Modify the request with updated pagination data.
+    fn modify_request(&self, request: &mut RawRequest) -> Result<()>;
 }
 
 /// Base trait for paginators. Paginators can use the previous pagination state
 /// and the response from the previous request to create a new pagination state.
 pub trait Paginator<T, U> {
-    type Updater: UrlUpdater;
+    /// The associated modifier that modifies the request with new pagination data.
+    type Modifier: RequestModifier;
 
-    fn updater(&self, data: U) -> Self::Updater;
-    fn next(&self, prev: &State<U>, res: &T) -> State<U>;
+    /// Constructs an associated modifier using pagination data.
+    fn modifier(&self, data: U) -> Self::Modifier;
+    /// Method for returning the next pagination state given the previous pagination data and the results from the previous request.
+    fn next(&self, prev: Option<&U>, res: &T) -> State<U>;
 }
 
 /// Trait for any request that requires pagination.
 pub trait PaginatedRequest: Request {
+    /// Associated data that can be used for pagination.
     type Data: Clone;
     /// The paginator used for the request.
     type Paginator: Paginator<Self::Response, <Self as PaginatedRequest>::Data>;
@@ -48,14 +56,19 @@ impl<T> Default for State<T> {
 }
 
 pub mod query {
+    //! Constructs for working with APIs that implement paging through one or more query parameters.
     use super::*;
     #[derive(Debug, Clone)]
-    pub struct QueryUpdater {
+    /// A modifier that updates the query portion of a request's URL. This modifier updates the
+    /// query keys using the values inside the data HashMap, overwriting any existing fields and
+    /// appending any non-existing fields.
+    pub struct QueryModifier {
         pub data: HashMap<String, String>,
     }
 
-    impl UrlUpdater for QueryUpdater {
-        fn update_url(&self, url: &mut Url) {
+    impl RequestModifier for QueryModifier {
+        fn modify_request(&self, request: &mut RawRequest) -> Result<()> {
+            let url = request.url_mut();
             let unchanged_queries: Vec<(_, _)> = url
                 .query_pairs()
                 .filter(|(k, _)| !self.data.contains_key(k.as_ref()))
@@ -69,17 +82,18 @@ pub mod query {
                 temp_url.query_pairs_mut().append_pair(key, val);
             }
             url.set_query(temp_url.query());
+            Ok(())
         }
     }
 
     /// A paginator that implements pagination through one or more query parameters.
     pub struct QueryPaginator<T, U> {
-        f: Box<dyn Fn(&State<U>, &T) -> Option<U>>,
+        f: Box<dyn Fn(Option<&U>, &T) -> Option<U>>,
         _phantom: std::marker::PhantomData<T>,
     }
 
     impl<T, U> QueryPaginator<T, U> {
-        pub fn new<F: 'static + Fn(&State<U>, &T) -> Option<U>>(f: F) -> Self {
+        pub fn new<F: 'static + Fn(Option<&U>, &T) -> Option<U>>(f: F) -> Self {
             Self {
                 f: Box::new(f),
                 _phantom: std::marker::PhantomData,
@@ -89,15 +103,15 @@ pub mod query {
 
     impl<T, U> Paginator<T, U> for QueryPaginator<T, U>
     where
-        U: Into<QueryUpdater>,
+        U: Into<QueryModifier>,
     {
-        type Updater = QueryUpdater;
+        type Modifier = QueryModifier;
 
-        fn updater(&self, data: U) -> QueryUpdater {
+        fn modifier(&self, data: U) -> QueryModifier {
             data.into()
         }
 
-        fn next(&self, prev: &State<U>, res: &T) -> State<U> {
+        fn next(&self, prev: Option<&U>, res: &T) -> State<U> {
             let queries = (self.f)(prev, res);
             match queries {
                 Some(queries) => State::Next(queries),
@@ -108,18 +122,25 @@ pub mod query {
 }
 
 pub mod path {
+    //! Constructs for working with APIs that implement paging through one or more path parameters.
     use super::*;
     #[derive(Debug, Clone)]
-    pub struct PathUpdater {
+
+    /// A modifier that updates the path portion of a request's URL. This modifier holds a HashMap
+    /// that maps the position of a path parameter to its updated value.
+    pub struct PathModifier {
         pub data: HashMap<usize, String>,
     }
 
-    impl UrlUpdater for PathUpdater {
-        fn update_url(&self, url: &mut Url) {
+    impl RequestModifier for PathModifier {
+        fn modify_request(&self, request: &mut RawRequest) -> Result<()> {
+            let url = request.url_mut();
             let temp_url = url.clone();
             let mut new_segments: Vec<&str> = temp_url
                 .path_segments()
-                .expect("URL cannot be a base")
+                .ok_or_else(|| Error::Pagination {
+                    msg: "URL cannot be a base".to_string(),
+                })?
                 .enumerate()
                 .map(|(i, x)| self.data.get(&i).map(|val| val.as_str()).unwrap_or(x))
                 .collect();
@@ -132,9 +153,12 @@ pub mod path {
                     None
                 }
             }));
-            let mut path_segments = url.path_segments_mut().expect("URL cannot be a base");
+            let mut path_segments = url.path_segments_mut().map_err(|_| Error::Pagination {
+                msg: "URL cannot be a base".to_string(),
+            })?;
             path_segments.clear();
             path_segments.extend(new_segments.iter());
+            Ok(())
         }
     }
 
@@ -142,12 +166,12 @@ pub mod path {
     /// the paginator should return the path segment number and the new path segment, e.g. (2, "foo")
     /// represents changing the third path segment to "foo"
     pub struct PathPaginator<T, U> {
-        f: Box<dyn Fn(&State<U>, &T) -> Option<U>>,
+        f: Box<dyn Fn(Option<&U>, &T) -> Option<U>>,
         _phantom: std::marker::PhantomData<T>,
     }
 
     impl<T, U> PathPaginator<T, U> {
-        pub fn new<F: 'static + Fn(&State<U>, &T) -> Option<U>>(f: F) -> Self {
+        pub fn new<F: 'static + Fn(Option<&U>, &T) -> Option<U>>(f: F) -> Self {
             Self {
                 f: Box::new(f),
                 _phantom: std::marker::PhantomData,
@@ -157,13 +181,13 @@ pub mod path {
 
     impl<T, U> Paginator<T, U> for PathPaginator<T, U>
     where
-        U: Into<PathUpdater>,
+        U: Into<PathModifier>,
     {
-        type Updater = PathUpdater;
-        fn updater(&self, data: U) -> Self::Updater {
+        type Modifier = PathModifier;
+        fn modifier(&self, data: U) -> Self::Modifier {
             data.into()
         }
-        fn next(&self, prev: &State<U>, res: &T) -> State<U> {
+        fn next(&self, prev: Option<&U>, res: &T) -> State<U> {
             let path = (self.f)(prev, res);
             match path {
                 Some(path) => State::Next(path),

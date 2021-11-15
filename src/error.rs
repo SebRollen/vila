@@ -1,6 +1,7 @@
 use thiserror::Error;
 
 #[derive(Debug, Error)]
+/// Possible errors in the request-response lifecycle.
 pub enum Error {
     #[error("Reqwest error: {0}")]
     Reqwest(#[from] reqwest::Error),
@@ -10,6 +11,9 @@ pub enum Error {
         error: serde_json::Error,
         msg: String,
     },
+
+    #[error("Pagination error: {msg}")]
+    Pagination { msg: String },
 
     #[error("Invalid request. Received status {0}. Message: {1}")]
     ClientError(reqwest::StatusCode, String),

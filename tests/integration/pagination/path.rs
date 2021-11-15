@@ -8,25 +8,22 @@ use vila::{Client, Request};
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, Request as MockRequest, ResponseTemplate};
 
-#[derive(Clone)]
-struct PathData {
-    page: usize,
-}
-
-impl From<PathData> for PathUpdater {
-    fn from(s: PathData) -> PathUpdater {
-        let mut data = HashMap::new();
-        // /nested/page/{number}
-        //   ^      ^      ^
-        //   0      1      2
-        data.insert(2, s.page.to_string());
-        PathUpdater { data }
-    }
-}
-
-#[derive(Serialize)]
+#[derive(Clone, Serialize)]
 struct PaginationRequest {
     page: Option<usize>,
+}
+
+impl From<PaginationRequest> for PathModifier {
+    fn from(s: PaginationRequest) -> PathModifier {
+        let mut data = HashMap::new();
+        if let Some(x) = s.page {
+            // /nested/page/{number}
+            //   ^      ^      ^
+            //   0      1      2
+            data.insert(2, x.to_string());
+        }
+        PathModifier { data }
+    }
 }
 
 #[derive(Deserialize, Serialize, Debug)]
@@ -48,15 +45,18 @@ impl Request for PaginationRequest {
 }
 
 impl PaginatedRequest for PaginationRequest {
-    type Data = PathData;
-    type Paginator = PathPaginator<PaginationResponse, PathData>;
+    type Data = Self;
+    type Paginator = PathPaginator<PaginationResponse, Self>;
     fn paginator(&self) -> Self::Paginator {
-        PathPaginator::new(|_, r: &PaginationResponse| r.next_page.map(|page| PathData { page }))
+        PathPaginator::new(|_, r: &PaginationResponse| {
+            r.next_page.map(|page| Self { page: Some(page) })
+        })
     }
 }
 
 #[tokio::test]
 async fn path_pagination() {
+    let _ = env_logger::try_init();
     let server = MockServer::start().await;
     let uri = server.uri();
     let client = Client::new(&uri);

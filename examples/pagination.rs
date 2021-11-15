@@ -4,22 +4,21 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use stream_flatten_iters::TryStreamExt;
 use vila::pagination::{
-    query::{QueryPaginator, QueryUpdater},
-    PaginatedRequest, State,
+    query::{QueryModifier, QueryPaginator},
+    PaginatedRequest,
 };
 use vila::{Client, Request, RequestData};
 
-// Domain
 #[derive(Clone)]
 struct Data {
     page: usize,
 }
 
-impl From<Data> for QueryUpdater {
-    fn from(s: Data) -> QueryUpdater {
+impl From<Data> for QueryModifier {
+    fn from(s: Data) -> QueryModifier {
         let mut data = HashMap::new();
         data.insert("page".into(), s.page.to_string());
-        QueryUpdater { data }
+        QueryModifier { data }
     }
 }
 
@@ -64,18 +63,17 @@ impl PaginatedRequest for GetPassengers {
     }
 
     fn paginator(&self) -> Self::Paginator {
-        QueryPaginator::new(|prev: &State<Data>, res: &PassengersWrapper| {
+        QueryPaginator::new(|prev: Option<&Data>, res: &PassengersWrapper| {
             let max_page = res.total_pages;
             match prev {
-                State::Start(None) => Some(Data { page: 1 }),
-                State::Start(Some(x)) | State::Next(x) => {
+                None => Some(Data { page: 1 }),
+                Some(x) => {
                     if x.page == max_page {
                         None
                     } else {
                         Some(Data { page: x.page + 1 })
                     }
                 }
-                State::End => None,
             }
         })
     }

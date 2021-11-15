@@ -8,22 +8,19 @@ use vila::{Client, Request, RequestData};
 use wiremock::matchers::{method, path, query_param};
 use wiremock::{Mock, MockServer, Request as MockRequest, ResponseTemplate};
 
-#[derive(Clone)]
-struct QueryData {
-    page: usize,
-}
-
-impl From<QueryData> for QueryUpdater {
-    fn from(s: QueryData) -> QueryUpdater {
-        let mut data = HashMap::new();
-        data.insert("page".into(), s.page.to_string());
-        QueryUpdater { data }
-    }
-}
-
-#[derive(Serialize)]
+#[derive(Clone, Serialize)]
 struct PaginationRequest {
     page: Option<usize>,
+}
+
+impl From<PaginationRequest> for QueryModifier {
+    fn from(s: PaginationRequest) -> QueryModifier {
+        let mut data = HashMap::new();
+        if let Some(x) = s.page {
+            data.insert("page".into(), x.to_string());
+        }
+        QueryModifier { data }
+    }
 }
 
 #[derive(Deserialize, Serialize, Debug)]
@@ -46,18 +43,21 @@ impl Request for PaginationRequest {
 }
 
 impl PaginatedRequest for PaginationRequest {
-    type Data = QueryData;
-    type Paginator = QueryPaginator<PaginationResponse, QueryData>;
+    type Data = Self;
+    type Paginator = QueryPaginator<PaginationResponse, Self>;
     fn paginator(&self) -> Self::Paginator {
-        QueryPaginator::new(|_, r: &PaginationResponse| r.next_page.map(|page| QueryData { page }))
+        QueryPaginator::new(|_, r: &PaginationResponse| {
+            r.next_page.map(|page| Self { page: Some(page) })
+        })
     }
-    fn initial_page(&self) -> Option<QueryData> {
-        self.page.map(|page| QueryData { page })
+    fn initial_page(&self) -> Option<Self> {
+        self.page.map(|page| Self { page: Some(page) })
     }
 }
 
 #[tokio::test]
 async fn initial_pagination() {
+    let _ = env_logger::try_init();
     let server = MockServer::start().await;
     let uri = server.uri();
     let client = Client::new(&uri);

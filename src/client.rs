@@ -1,5 +1,5 @@
 use crate::error::{Error, Result};
-use crate::pagination::{PaginatedRequest, Paginator, State, UrlUpdater};
+use crate::pagination::{PaginatedRequest, Paginator, RequestModifier, State};
 use crate::request::{Request, RequestBuilderExt};
 use futures::prelude::*;
 use log::debug;
@@ -154,11 +154,11 @@ impl Client {
                     State::End => return Ok(None),
                 };
                 if let Some(page) = page {
-                    let updater = paginator.updater(page.clone());
-                    updater.update_url(base_request.url_mut())
+                    let modifier = paginator.modifier(page.clone());
+                    modifier.modify_request(&mut base_request)?;
                 }
                 let response = self.send_raw(base_request).await?;
-                let state = paginator.next(&state, &response);
+                let state = paginator.next(page, &response);
                 Ok(Some((response, (paginator, state))))
             },
         ))

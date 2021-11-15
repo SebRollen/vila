@@ -6,6 +6,7 @@ use wiremock::{Mock, MockServer, Request as MockRequest, ResponseTemplate};
 
 #[tokio::test]
 async fn query() {
+    let _ = env_logger::try_init();
     let server = MockServer::start().await;
     let uri = server.uri();
     let client = Client::new(&uri);
@@ -44,6 +45,7 @@ async fn query() {
 
 #[tokio::test]
 async fn json() {
+    let _ = env_logger::try_init();
     let server = MockServer::start().await;
     let uri = server.uri();
     let client = Client::new(&uri);
@@ -76,6 +78,7 @@ async fn json() {
 
 #[tokio::test]
 async fn form() {
+    let _ = env_logger::try_init();
     let server = MockServer::start().await;
     let uri = server.uri();
     let client = Client::new(&uri);
