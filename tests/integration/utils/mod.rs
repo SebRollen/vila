@@ -44,7 +44,7 @@ impl Request for QueryHello {
     }
 
     fn data(&self) -> RequestData<&Self> {
-        RequestData::Query(&self)
+        RequestData::Query(self)
     }
 }
 
@@ -57,7 +57,7 @@ impl Request for JsonHello {
     }
 
     fn data(&self) -> RequestData<&Self> {
-        RequestData::Json(&self)
+        RequestData::Json(self)
     }
 }
 
@@ -70,6 +70,6 @@ impl Request for FormHello {
     }
 
     fn data(&self) -> RequestData<&Self> {
-        RequestData::Form(&self)
+        RequestData::Form(self)
     }
 }

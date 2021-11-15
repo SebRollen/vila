@@ -6,6 +6,7 @@ use wiremock::{Mock, MockServer, Request as MockRequest, ResponseTemplate};
 
 #[tokio::test]
 async fn query_multiple() {
+    let _ = env_logger::try_init();
     let server = MockServer::start().await;
     let uri = server.uri();
     let client = Client::new(&uri);

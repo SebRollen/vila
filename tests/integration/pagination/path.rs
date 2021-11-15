@@ -1,14 +1,29 @@
 use futures::StreamExt;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
+use std::collections::HashMap;
+use vila::pagination::path::*;
 use vila::pagination::*;
 use vila::{Client, Request};
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, Request as MockRequest, ResponseTemplate};
 
-#[derive(Serialize)]
+#[derive(Clone, Serialize)]
 struct PaginationRequest {
     page: Option<usize>,
+}
+
+impl From<PaginationRequest> for PathModifier {
+    fn from(s: PaginationRequest) -> PathModifier {
+        let mut data = HashMap::new();
+        if let Some(x) = s.page {
+            // /nested/page/{number}
+            //   ^      ^      ^
+            //   0      1      2
+            data.insert(2, x.to_string());
+        }
+        PathModifier { data }
+    }
 }
 
 #[derive(Deserialize, Serialize, Debug)]
@@ -30,19 +45,18 @@ impl Request for PaginationRequest {
 }
 
 impl PaginatedRequest for PaginationRequest {
-    type Paginator = PathPaginator<PaginationResponse>;
+    type Data = Self;
+    type Paginator = PathPaginator<PaginationResponse, Self>;
     fn paginator(&self) -> Self::Paginator {
         PathPaginator::new(|_, r: &PaginationResponse| {
-            // /nested/page/{number}
-            //   ^      ^      ^
-            //   0      1      2
-            r.next_page.map(|page| vec![(2, page.to_string())])
+            r.next_page.map(|page| Self { page: Some(page) })
         })
     }
 }
 
 #[tokio::test]
 async fn path_pagination() {
+    let _ = env_logger::try_init();
     let server = MockServer::start().await;
     let uri = server.uri();
     let client = Client::new(&uri);

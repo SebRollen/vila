@@ -26,6 +26,7 @@ impl Request for CreateUser {
 
 #[tokio::test]
 async fn post() {
+    let _ = env_logger::try_init();
     let server = MockServer::start().await;
     let uri = server.uri();
     let client = Client::new(&uri);

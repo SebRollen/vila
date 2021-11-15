@@ -1,14 +1,26 @@
 use futures::StreamExt;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
+use std::collections::HashMap;
+use vila::pagination::query::*;
 use vila::pagination::*;
 use vila::{Client, Request, RequestData};
 use wiremock::matchers::{method, path, query_param};
 use wiremock::{Mock, MockServer, Request as MockRequest, ResponseTemplate};
 
-#[derive(Serialize)]
+#[derive(Clone, Serialize)]
 struct PaginationRequest {
     page: Option<usize>,
+}
+
+impl From<PaginationRequest> for QueryModifier {
+    fn from(s: PaginationRequest) -> QueryModifier {
+        let mut data = HashMap::new();
+        if let Some(x) = s.page {
+            data.insert("page".into(), x.to_string());
+        }
+        QueryModifier { data }
+    }
 }
 
 #[derive(Deserialize, Serialize, Debug)]
@@ -31,21 +43,21 @@ impl Request for PaginationRequest {
 }
 
 impl PaginatedRequest for PaginationRequest {
-    type Paginator = QueryPaginator<PaginationResponse>;
+    type Data = Self;
+    type Paginator = QueryPaginator<PaginationResponse, Self>;
     fn paginator(&self) -> Self::Paginator {
         QueryPaginator::new(|_, r: &PaginationResponse| {
-            r.next_page
-                .map(|page| vec![("page".into(), page.to_string())])
+            r.next_page.map(|page| Self { page: Some(page) })
         })
     }
-    fn initial_page(&self) -> Option<PaginationType> {
-        self.page
-            .map(|page| PaginationType::Query(vec![("page".into(), page.to_string())]))
+    fn initial_page(&self) -> Option<Self> {
+        self.page.map(|page| Self { page: Some(page) })
     }
 }
 
 #[tokio::test]
-async fn query_pagination() {
+async fn initial_pagination() {
+    let _ = env_logger::try_init();
     let server = MockServer::start().await;
     let uri = server.uri();
     let client = Client::new(&uri);
