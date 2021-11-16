@@ -1,5 +1,12 @@
 # Changelog
 
+### [2.0.1](https://www.github.com/SebRollen/vila/compare/v2.0.0...v2.0.1) (2021-11-16)
+
+
+### Bug Fixes
+
+* require functions in paginators to be thread-safe ([#12](https://www.github.com/SebRollen/vila/issues/12)) ([a518534](https://www.github.com/SebRollen/vila/commit/a5185346f7714b380df3d7038a541660dc2ba434))
+
 ## [2.0.0](https://www.github.com/SebRollen/vila/compare/v1.2.0...v2.0.0) (2021-11-15)
 
 
