@@ -26,11 +26,13 @@ pub trait Paginator<T, U> {
 pub trait PaginatedRequest: Request {
     /// Associated data that can be used for pagination.
     type Data: Clone;
+
     /// The paginator used for the request.
     type Paginator: Paginator<Self::Response, <Self as PaginatedRequest>::Data>;
 
     /// Return the associated paginator.
     fn paginator(&self) -> Self::Paginator;
+
     /// Specify the initial page to start pagination from. Defaults to `None`, which means
     /// pagination will begin from whatever page the API defines as the initial page.
     fn initial_page(&self) -> Option<<Self as PaginatedRequest>::Data> {
