@@ -20,6 +20,9 @@ pub enum Error {
 
     #[error("Server error. Received status {0}. Message: {1}")]
     ServerError(reqwest::StatusCode, String),
+
+    #[error("IO error: {0}")]
+    Io(#[from] std::io::Error),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

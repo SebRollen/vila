@@ -2,6 +2,8 @@ use crate::error::{Error, Result};
 use crate::pagination::{PaginatedRequest, Paginator, RequestModifier, State};
 use crate::request::{Request, RequestBuilderExt};
 use futures::prelude::*;
+#[cfg(feature = "progress")]
+use indicatif::{MultiProgress, ProgressBar};
 use log::debug;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use reqwest::Client as ReqwestClient;
@@ -25,6 +27,8 @@ pub struct Client {
     inner: Arc<ReqwestClient>,
     base_url: String,
     auth: Option<Authorization>,
+    #[cfg(feature = "progress")]
+    progress: Option<Arc<MultiProgress>>,
 }
 
 impl Client {
@@ -36,7 +40,19 @@ impl Client {
             inner,
             base_url: base_url.to_string(),
             auth: None,
+            #[cfg(feature = "progress")]
+            progress: None,
         }
+    }
+
+    #[cfg(feature = "progress")]
+    /// Display a progress bar for paginated requests.
+    /// If progress is shown, the URL for each request will be printed to the command line to
+    /// indicate the current request(s), so care must be taken in case the URL includes sensitive
+    /// details such as API keys.
+    pub fn show_progress(mut self) -> Self {
+        self.progress = Some(Arc::new(MultiProgress::new()));
+        self
     }
 
     /// Enable bearer authentication for the client
@@ -144,23 +160,74 @@ impl Client {
         &'a self,
         request: &'a R,
     ) -> impl Stream<Item = Result<R::Response>> + Unpin + 'a {
+        #[cfg(feature = "progress")]
+        let progress = self
+            .progress
+            .as_ref()
+            .map(|m| m.add(ProgressBar::new_spinner()));
         Box::pin(stream::try_unfold(
-            (request.paginator(), State::Start(request.initial_page())),
-            move |(paginator, state)| async move {
+            (
+                request.paginator(),
+                State::Start(request.initial_page()),
+                #[cfg(feature = "progress")]
+                progress,
+            ),
+            move |x| async move {
+                #[cfg(feature = "progress")]
+                let (paginator, state, progress) = x;
+
+                #[cfg(not(feature = "progress"))]
+                let (paginator, state) = x;
+
                 let mut base_request = self.format_request(request)?;
                 let page = match state {
                     State::Start(None) => None,
                     State::Start(Some(ref page)) | State::Next(ref page) => Some(page),
-                    State::End => return Ok(None),
+                    State::End => {
+                        #[cfg(feature = "progress")]
+                        if let Some((p, m)) = progress.zip(self.progress.as_ref()) {
+                            p.finish_and_clear();
+                            m.remove(&p);
+                        }
+                        return Ok(None);
+                    }
                 };
                 if let Some(page) = page {
                     let modifier = paginator.modifier(page.clone());
                     modifier.modify_request(&mut base_request)?;
                 }
+                #[cfg(feature = "progress")]
+                if let Some(p) = progress.as_ref() {
+                    p.set_message(base_request.url().to_string())
+                }
                 let response = self.send_raw(base_request).await?;
                 let state = paginator.next(page, &response);
-                Ok(Some((response, (paginator, state))))
+                #[cfg(feature = "progress")]
+                if let Some(ref p) = progress {
+                    p.tick();
+                }
+                Ok(Some((
+                    response,
+                    (
+                        paginator,
+                        state,
+                        #[cfg(feature = "progress")]
+                        progress,
+                    ),
+                )))
             },
         ))
+    }
+
+    /// Send multiple paginated requests, returning a stream of results
+    pub fn send_all_paginated<'a, I, R>(
+        &'a self,
+        requests: I,
+    ) -> impl Iterator<Item = impl Stream<Item = Result<R::Response>> + 'a>
+    where
+        I: IntoIterator<Item = &'a R> + 'a,
+        R: PaginatedRequest + 'a,
+    {
+        requests.into_iter().map(move |r| self.send_paginated(r))
     }
 }
