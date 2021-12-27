@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.1.0](https://www.github.com/SebRollen/vila/compare/v2.0.1...v2.1.0) (2021-12-27)
+
+
+### Features
+
+* Allow for progress bars in paginated requests ([#14](https://www.github.com/SebRollen/vila/issues/14)) ([cb5cb50](https://www.github.com/SebRollen/vila/commit/cb5cb50aedb13bf4bdbac7236621002871aaf1e2))
+* Allow sending multiple paginated requests at once ([cb5cb50](https://www.github.com/SebRollen/vila/commit/cb5cb50aedb13bf4bdbac7236621002871aaf1e2))
+
 ### [2.0.1](https://www.github.com/SebRollen/vila/compare/v2.0.0...v2.0.1) (2021-11-16)
 
 
