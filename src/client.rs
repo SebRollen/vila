@@ -13,7 +13,7 @@ use std::sync::Arc;
 #[derive(Clone)]
 enum Authorization {
     Bearer(String),
-    Basic(String, String),
+    Basic(String, Option<String>),
     Query(Vec<(String, String)>),
     Header(HeaderMap<HeaderValue>),
 }
@@ -62,8 +62,11 @@ impl Client {
     }
 
     /// Enable basic authentication for the client
-    pub fn basic_auth<S: ToString>(mut self, user: S, pass: S) -> Self {
-        self.auth = Some(Authorization::Basic(user.to_string(), pass.to_string()));
+    pub fn basic_auth<T: Into<Option<S>>, S: ToString>(mut self, user: S, pass: T) -> Self {
+        self.auth = Some(Authorization::Basic(
+            user.to_string(),
+            pass.into().map(|x| x.to_string()),
+        ));
         self
     }
 
@@ -106,7 +109,7 @@ impl Client {
         let req = match &self.auth {
             None => req,
             Some(Authorization::Bearer(token)) => req.bearer_auth(token),
-            Some(Authorization::Basic(user, pass)) => req.basic_auth(user, Some(pass)),
+            Some(Authorization::Basic(user, pass)) => req.basic_auth(user, pass.as_ref()),
             Some(Authorization::Query(pairs)) => req.query(&pairs),
             Some(Authorization::Header(pairs)) => req.headers(pairs.clone()),
         };
