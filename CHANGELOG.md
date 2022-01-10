@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.2.0](https://www.github.com/SebRollen/vila/compare/v2.1.0...v2.2.0) (2022-01-10)
+
+
+### Features
+
+* allow for basic auth without password ([#17](https://www.github.com/SebRollen/vila/issues/17)) ([957abdf](https://www.github.com/SebRollen/vila/commit/957abdfff26efd4061eaefc85e29d39b837f7f54))
+
 ## [2.1.0](https://www.github.com/SebRollen/vila/compare/v2.0.1...v2.1.0) (2021-12-27)
 
 
