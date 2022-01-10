@@ -91,15 +91,11 @@ pub mod query {
     /// A paginator that implements pagination through one or more query parameters.
     pub struct QueryPaginator<T, U> {
         f: Box<dyn 'static + Send + Sync + Fn(Option<&U>, &T) -> Option<U>>,
-        _phantom: std::marker::PhantomData<T>,
     }
 
     impl<T, U> QueryPaginator<T, U> {
         pub fn new<F: 'static + Send + Sync + Fn(Option<&U>, &T) -> Option<U>>(f: F) -> Self {
-            Self {
-                f: Box::new(f),
-                _phantom: std::marker::PhantomData,
-            }
+            Self { f: Box::new(f) }
         }
     }
 
@@ -169,15 +165,11 @@ pub mod path {
     /// represents changing the third path segment to "foo"
     pub struct PathPaginator<T, U> {
         f: Box<dyn 'static + Send + Sync + Fn(Option<&U>, &T) -> Option<U>>,
-        _phantom: std::marker::PhantomData<T>,
     }
 
     impl<T, U> PathPaginator<T, U> {
         pub fn new<F: 'static + Send + Sync + Fn(Option<&U>, &T) -> Option<U>>(f: F) -> Self {
-            Self {
-                f: Box::new(f),
-                _phantom: std::marker::PhantomData,
-            }
+            Self { f: Box::new(f) }
         }
     }
 
