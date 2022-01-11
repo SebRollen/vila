@@ -1,5 +1,21 @@
 # Changelog
 
+## [3.0.0](https://www.github.com/SebRollen/vila/compare/v2.1.0...v3.0.0) (2022-01-11)
+
+
+### ⚠ BREAKING CHANGES
+
+* remove multirequest methods (#20)
+
+### Features
+
+* allow for basic auth without password ([#17](https://www.github.com/SebRollen/vila/issues/17)) ([957abdf](https://www.github.com/SebRollen/vila/commit/957abdfff26efd4061eaefc85e29d39b837f7f54))
+
+
+### Code Refactoring
+
+* remove multirequest methods ([#20](https://www.github.com/SebRollen/vila/issues/20)) ([6f42eda](https://www.github.com/SebRollen/vila/commit/6f42eda4b69c3a0394dee94bfa8c5fecdd6c077c))
+
 ## [2.1.0](https://www.github.com/SebRollen/vila/compare/v2.0.1...v2.1.0) (2021-12-27)
 
 
