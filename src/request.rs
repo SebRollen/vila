@@ -27,6 +27,7 @@ pub trait Request {
     type Data: Serialize;
     /// The type of the response from the server.
     type Response: for<'de> Deserialize<'de> + Unpin;
+
     /// The HTTP method for the request.
     const METHOD: Method = Method::GET;
 
