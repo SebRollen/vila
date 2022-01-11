@@ -142,22 +142,6 @@ impl Client {
         self.send_raw(req).await
     }
 
-    /// Send multiple `Request`s, returing a stream of results
-    pub fn send_all<'a, I, R>(
-        &'a self,
-        requests: I,
-    ) -> impl Stream<Item = Result<R::Response>> + Unpin + 'a
-    where
-        I: IntoIterator<Item = &'a R> + 'a,
-        R: Request + 'a,
-    {
-        Box::pin(
-            stream::iter(requests.into_iter())
-                .map(move |r| self.send(r).map_into())
-                .filter_map(|x| x),
-        )
-    }
-
     /// Send a paginated request, returning a stream of results
     pub fn send_paginated<'a, R: PaginatedRequest>(
         &'a self,
@@ -220,17 +204,5 @@ impl Client {
                 )))
             },
         ))
-    }
-
-    /// Send multiple paginated requests, returning a stream of results
-    pub fn send_all_paginated<'a, I, R>(
-        &'a self,
-        requests: I,
-    ) -> impl Iterator<Item = impl Stream<Item = Result<R::Response>> + 'a>
-    where
-        I: IntoIterator<Item = &'a R> + 'a,
-        R: PaginatedRequest + 'a,
-    {
-        requests.into_iter().map(move |r| self.send_paginated(r))
     }
 }

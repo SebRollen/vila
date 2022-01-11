@@ -190,3 +190,28 @@ pub mod path {
         }
     }
 }
+
+//enum PaginationFn<T, U> {
+//    NoResult(Box<dyn Send + Sync + Fn(Option<&U>) -> Option<U>>),
+//    ResultNeeded(Box<dyn Send + Sync + Fn(Option<&U>, &T) -> Option<U>>),
+//}
+//
+//impl<'u, T, U: 'u> From<fn(Option<&'u U>) -> Option<U>> for PaginationFn<T, U> {
+//    fn from(x: fn(Option<&'u U>) -> Option<U>) -> PaginationFn<T, U> {
+//        PaginationFn::NoResult(Box::new(x))
+//    }
+//}
+//
+//impl<T: 'static, U: 'static> From<fn(Option<&U>, &T) -> Option<U>> for PaginationFn<T, U> {
+//    fn from(x: fn(Option<&U>, &T) -> Option<U>) -> PaginationFn<T, U> {
+//        PaginationFn::ResultNeeded(Box::new(x))
+//    }
+//}
+//
+//fn test(x: Option<&i32>) -> Option<i32> {
+//    x.cloned()
+//}
+//
+//fn new_pagination<T>() -> PaginationFn<T, i32> {
+//    test.into()
+//}
