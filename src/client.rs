@@ -86,9 +86,11 @@ impl Client {
         for (k, v) in pairs {
             let k = k.to_string();
             let v = v.to_string();
+            let mut header_value = HeaderValue::from_str(&v).expect("Failed to create HeaderValue");
+            header_value.set_sensitive(true);
             map.insert(
                 HeaderName::try_from(&k).expect("Failed to create HeaderName"),
-                HeaderValue::from_str(&v).expect("Failed to create HeaderValue"),
+                header_value,
             );
         }
         self.auth = Some(Authorization::Header(map));
