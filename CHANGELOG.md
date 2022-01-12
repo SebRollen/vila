@@ -1,5 +1,12 @@
 # Changelog
 
+### [3.0.1](https://www.github.com/SebRollen/vila/compare/v3.0.0...v3.0.1) (2022-01-12)
+
+
+### Bug Fixes
+
+* mark header authorization as sensitive ([#22](https://www.github.com/SebRollen/vila/issues/22)) ([befcf27](https://www.github.com/SebRollen/vila/commit/befcf2706c1d5566dc12fe3ffaa9895fe32ca249))
+
 ## [3.0.0](https://www.github.com/SebRollen/vila/compare/v2.1.0...v3.0.0) (2022-01-11)
 
 
