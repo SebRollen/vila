@@ -1,5 +1,17 @@
 # Changelog
 
+## [3.1.0](https://www.github.com/SebRollen/vila/compare/v3.0.0...v3.1.0) (2023-03-06)
+
+
+### Features
+
+* allow creating a Vila client from an existing Reqwest client through Client::from_reqwest ([#24](https://www.github.com/SebRollen/vila/issues/24)) ([783428c](https://www.github.com/SebRollen/vila/commit/783428c39d78aca19ec4ee68a4e5965e936c9514))
+
+
+### Bug Fixes
+
+* mark header authorization as sensitive ([#22](https://www.github.com/SebRollen/vila/issues/22)) ([befcf27](https://www.github.com/SebRollen/vila/commit/befcf2706c1d5566dc12fe3ffaa9895fe32ca249))
+
 ## [3.0.0](https://www.github.com/SebRollen/vila/compare/v2.1.0...v3.0.0) (2022-01-11)
 
 
