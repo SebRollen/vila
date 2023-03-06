@@ -90,10 +90,12 @@ pub mod query {
 
     /// A paginator that implements pagination through one or more query parameters.
     pub struct QueryPaginator<T, U> {
+        #[allow(clippy::type_complexity)]
         f: Box<dyn 'static + Send + Sync + Fn(Option<&U>, &T) -> Option<U>>,
     }
 
     impl<T, U> QueryPaginator<T, U> {
+        #[allow(clippy::type_complexity)]
         pub fn new<F: 'static + Send + Sync + Fn(Option<&U>, &T) -> Option<U>>(f: F) -> Self {
             Self { f: Box::new(f) }
         }
@@ -164,6 +166,7 @@ pub mod path {
     /// the paginator should return the path segment number and the new path segment, e.g. (2, "foo")
     /// represents changing the third path segment to "foo"
     pub struct PathPaginator<T, U> {
+        #[allow(clippy::type_complexity)]
         f: Box<dyn 'static + Send + Sync + Fn(Option<&U>, &T) -> Option<U>>,
     }
 

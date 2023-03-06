@@ -34,7 +34,14 @@ pub struct Client {
 impl Client {
     /// Create a new `Client`.
     pub fn new<S: ToString>(base_url: S) -> Self {
-        let inner = Arc::new(ReqwestClient::new());
+        let client = ReqwestClient::new();
+
+        Self::from_reqwest(client, base_url)
+    }
+
+    /// Create a new `Client` from an existing Reqwest Client.
+    pub fn from_reqwest<S: ToString>(client: ReqwestClient, base_url: S) -> Self {
+        let inner = Arc::new(client);
 
         Self {
             inner,
@@ -104,7 +111,7 @@ impl Client {
 
         let req = self
             .inner
-            .request(R::METHOD, &url)
+            .request(R::METHOD, url)
             .headers(request.headers())
             .request_data(request.data());
 
